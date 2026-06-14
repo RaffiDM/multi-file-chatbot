@@ -1,0 +1,25 @@
+# ─── Web Framework ───────────────────────────────────────────────
+streamlit>=1.35.0
+
+# ─── GCP Auth (pure-Python JWT signing, tanpa google-auth besar) ─
+cryptography>=42.0.0
+requests>=2.31.0
+
+# ─── Document Parsing ────────────────────────────────────────────
+# unstructured[all-docs] mendukung PDF, DOCX, PPTX, TXT, dsb.
+unstructured[all-docs]>=0.14.0
+
+# ─── LangChain (hanya splitter + FAISS, TIDAK butuh OpenAI) ─────
+langchain-text-splitters>=0.2.0
+langchain-community>=0.2.0
+faiss-cpu>=1.8.0
+
+# ─── Embedding lokal (offline, multilingual, ~120MB model) ───────
+sentence-transformers>=3.0.0
+langchain-huggingface>=0.0.3
+
+# ─── Tiktoken (dipakai splitter) ─────────────────────────────────
+tiktoken>=0.7.0
+
+# ─── Utilitas ────────────────────────────────────────────────────
+python-dotenv>=1.0.0

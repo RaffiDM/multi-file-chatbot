@@ -1,0 +1,9 @@
+.env
+gcp-key.json
+temp_uploads/
+.venv/
+__pycache__/
+*.pyc
+.streamlit/
+setup.sh
+.vscode/
