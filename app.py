@@ -310,7 +310,7 @@ def render_sidebar() -> list:
 
 def main():
     st.set_page_config(
-        page_title="Internal Chatbot — GCP Gemini",
+        page_title="Internal Chatbot",
         page_icon="💬",
         layout="wide",
     )
