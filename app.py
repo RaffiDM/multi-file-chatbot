@@ -39,10 +39,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GCP AUTHENTICATION  (identik dengan PHP Controller Anda)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
@@ -89,7 +85,7 @@ def get_gcp_access_token(key_path: str) -> str | None:
             "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
             "assertion" : jwt_token,
         },
-        verify=True,   # aktifkan verifikasi SSL di production
+        verify=True,
         timeout=15,
     )
 
@@ -112,10 +108,6 @@ def call_gemini(
     context: str = "",
     temperature: float = 0.4,
 ) -> str:
-    """
-    Kirim pesan ke Gemini melalui Vertex AI Agent Platform endpoint.
-    Mendukung multi-turn conversation + RAG context injection.
-    """
     endpoint = (
         f"https://{GCP_LOCATION}-aiplatform.googleapis.com/v1"
         f"/projects/{GCP_PROJECT_ID}/locations/{GCP_LOCATION}"
@@ -285,7 +277,7 @@ def get_valid_token() -> str | None:
 def render_sidebar() -> list:
     """Render sidebar dan kembalikan daftar path file yang diupload."""
     with st.sidebar:
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_\"G\"_Logo.svg/512px-Google_\"G\"_Logo.svg.png", width=40)
+        st.markdown("## 🤖 Internal Chatbot")
 
         st.markdown("---")
         st.markdown("## 📂 Upload Dokumen")
