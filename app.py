@@ -22,15 +22,20 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
+# ─── KONFIGURASI ─────────────────────────────────────────────────────────────
 load_dotenv()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# KONFIGURASI
-# ─────────────────────────────────────────────────────────────────────────────
+def _get_config(secrets_section: str, key: str, env_key: str, default: str = "") -> str:
+    """Baca dari Streamlit Secrets (cloud) atau env var (lokal)."""
+    try:
+        return st.secrets[secrets_section][key]
+    except (KeyError, FileNotFoundError):
+        return os.getenv(env_key, default)
+
+GCP_PROJECT_ID = _get_config("app", "GCP_PROJECT_ID", "GCP_PROJECT_ID", "project-raffi-24587")
+GCP_LOCATION   = _get_config("app", "GCP_LOCATION",   "GCP_LOCATION",   "us-central1")
+GEMINI_MODEL   = _get_config("app", "GEMINI_MODEL",   "GEMINI_MODEL",   "gemini-2.5-flash")
 GCP_KEY_PATH   = os.getenv("GCP_KEY_PATH", "gcp-key.json")
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "project-raffi-24587")
-GCP_LOCATION   = os.getenv("GCP_LOCATION", "us-central1")
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 TEMP_DIR       = "temp_uploads"
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -43,25 +48,30 @@ def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
-def get_gcp_access_token(key_path: str) -> str | None:
-    """Generate OAuth2 Access Token dari GCP Service Account JSON."""
-    if not os.path.exists(key_path):
-        logger.error(f"GCP key file not found: {key_path}")
-        return None
-
-    with open(key_path) as f:
-        key_data = json.load(f)
-
-    private_key  = key_data.get("private_key")
-    client_email = key_data.get("client_email")
-
-    if not private_key or not client_email:
-        logger.error("Invalid GCP Service Account JSON structure.")
-        return None
-
+def get_gcp_access_token() -> str | None:
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
     from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
     from cryptography.hazmat.primitives.hashes import SHA256
+
+    # ── Cloud: baca dari Streamlit Secrets ───────────────────────────────
+    try:
+        private_key  = st.secrets["gcp"]["private_key"]
+        client_email = st.secrets["gcp"]["client_email"]
+        logger.info("Credentials dari Streamlit Secrets.")
+    except (KeyError, FileNotFoundError):
+        # ── Lokal: baca dari gcp-key.json ────────────────────────────────
+        if not os.path.exists(GCP_KEY_PATH):
+            logger.error(f"GCP key tidak ditemukan: {GCP_KEY_PATH}")
+            return None
+        with open(GCP_KEY_PATH) as f:
+            key_data = json.load(f)
+        private_key  = key_data.get("private_key")
+        client_email = key_data.get("client_email")
+        logger.info("Credentials dari file JSON lokal.")
+
+    if not private_key or not client_email:
+        logger.error("Struktur GCP credentials tidak valid.")
+        return None
 
     header  = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
     now     = int(time.time())
@@ -74,9 +84,8 @@ def get_gcp_access_token(key_path: str) -> str | None:
     }).encode())
 
     signing_input = f"{header}.{payload}".encode()
-    pkey = load_pem_private_key(private_key.encode(), password=None)
+    pkey      = load_pem_private_key(private_key.encode(), password=None)
     signature = _b64url(pkey.sign(signing_input, PKCS1v15(), SHA256()))
-
     jwt_token = f"{header}.{payload}.{signature}"
 
     resp = requests.post(
@@ -85,12 +94,11 @@ def get_gcp_access_token(key_path: str) -> str | None:
             "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
             "assertion" : jwt_token,
         },
-        verify=True,
         timeout=15,
     )
 
     if not resp.ok:
-        logger.error(f"GCP OAuth failed: {resp.text}")
+        logger.error(f"GCP OAuth gagal: {resp.text}")
         return None
 
     return resp.json().get("access_token")
@@ -262,12 +270,11 @@ def init_session():
 
 
 def get_valid_token() -> str | None:
-    """Return cached token atau minta token baru jika sudah expired."""
     now = time.time()
     if st.session_state.access_token and now < st.session_state.token_expiry - 60:
         return st.session_state.access_token
 
-    token = get_gcp_access_token(GCP_KEY_PATH)
+    token = get_gcp_access_token()
     if token:
         st.session_state.access_token = token
         st.session_state.token_expiry = now + 3600
